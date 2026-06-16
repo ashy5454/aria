@@ -17,7 +17,7 @@
 
 <div align="center">
 
-![ARIA Dashboard](docs/images/dashboard_phone.png)
+![ARIA Dashboard](docs/images/dashboard_phone.svg)
 
 *Live experiment dashboard — monitor and control from your phone while ARIA runs overnight*
 
