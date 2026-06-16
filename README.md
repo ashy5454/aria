@@ -34,7 +34,7 @@ You sleep. ARIA runs. You wake up to a conclusion.
 ```
 
 Not a chatbot wrapper. Not a scheduler. A research loop with:
-- **5-persona Gemini council** — Neuroscientist, Skeptic, Theorist, Engineer, Maverick each propose independently. Chairman synthesizes.
+- **5-persona model council** — Neuroscientist, Skeptic, Theorist, Engineer, Maverick each propose independently. Chairman synthesizes.
 - **Three-level memory** — skills accumulate across experiments. ARIA never proposes what already failed.
 - **GEPA-lite constitution** — every N experiments, the Evolver rewrites `AGENT.md` from accumulated learnings. ARIA gets smarter the longer it runs.
 - **Hard stop conditions** — exits cleanly with a structured `CONCLUSION.md` when the goal is reached, a ceiling is found, or a mechanism is confirmed.
@@ -46,11 +46,11 @@ Not a chatbot wrapper. Not a scheduler. A research loop with:
 ```bash
 git clone https://github.com/ashy5454/aria
 cd aria
-pip install google-genai httpx pyyaml
+pip install httpx pyyaml
 
-# Pick one:
-export GEMINI_API_KEY=your_key       # provider: gemini
-export OPENROUTER_API_KEY=your_key   # provider: openrouter (GPT-4o, Claude, Llama...)
+# Pick one provider and set its key:
+export GEMINI_API_KEY=your_key       # provider: gemini  (pip install google-genai)
+export OPENROUTER_API_KEY=your_key   # provider: openrouter — GPT-4o, Claude, Llama, Mistral...
 export OPENAI_API_KEY=your_key       # provider: openai
 
 python loop_v2.py
@@ -200,7 +200,7 @@ The Planner searches skill memory before every hypothesis. ARIA never proposes w
 ```
 loop_v2.py              main research loop (config-driven)
 memory.py               three-level memory layer
-hypothesis_council.py   5-persona Gemini council + chairman
+hypothesis_council.py   5-persona council + chairman (provider-agnostic)
 research.yaml           your config — swap per project
 AGENT.md                research constitution — evolved every N experiments
 
