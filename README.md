@@ -233,6 +233,7 @@ examples/
 - [Andrej Karpathy](https://github.com/karpathy) — fixed-budget research loop, keep/discard pattern
 - [NousResearch/hermes-agent](https://github.com/NousResearch) — three-level memory, GEPA constitution evolution
 - [karpathy/llm-council](https://github.com/karpathy) — multi-model independent proposal + synthesis
+- [CTS by Yudi Labs](https://github.com/ashy5454) — conversation-type routing and session memory layer
 
 ---
 
