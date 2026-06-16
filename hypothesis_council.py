@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from providers import make_client, LLMClient
 
@@ -177,19 +178,28 @@ def run_hypothesis_council(
     )
     prompt = ctx + "\n\n" + PROPOSAL_INSTRUCTION
 
-    # Stage 1 — all 5 personas propose independently
+    # Stage 1 — all 5 personas propose in parallel
+    def _persona_call(persona):
+        raw = _call(client, gemini_model, persona["system"], prompt)
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if match:
+            p = json.loads(match.group())
+            p["_persona"] = persona["name"]
+            return p
+        return None
+
     proposals = []
-    for persona in PERSONAS:
-        try:
-            raw = _call(client, gemini_model, persona["system"], prompt)
-            match = re.search(r'\{.*\}', raw, re.DOTALL)
-            if match:
-                p = json.loads(match.group())
-                p["_persona"] = persona["name"]
-                proposals.append(p)
-                print(f"  [council/{persona['name']}] {p.get('hypothesis','')[:80]}")
-        except Exception as e:
-            print(f"  [council/{persona['name']}] failed: {e}")
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        futures = {ex.submit(_persona_call, p): p for p in PERSONAS}
+        for fut in as_completed(futures):
+            persona = futures[fut]
+            try:
+                p = fut.result()
+                if p:
+                    proposals.append(p)
+                    print(f"  [council/{persona['name']}] {p.get('hypothesis','')[:80]}")
+            except Exception as e:
+                print(f"  [council/{persona['name']}] failed: {e}")
 
     if not proposals:
         # fallback — return empty so loop falls back to solo planner
@@ -277,12 +287,15 @@ In 2-3 sentences: WHY did this result happen mechanistically?
 What does this tell us about the architecture?"""
 
     interpretations = []
-    for persona in [PERSONAS[1], PERSONAS[2]]:  # Skeptic + Theorist
-        try:
-            interp = _call(client, gemini_model, persona["system"], interp_prompt)
-            interpretations.append(f"[{persona['name']}]: {interp[:400]}")
-        except Exception:
-            pass
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        futs = {ex.submit(_call, client, gemini_model, p["system"], interp_prompt): p
+                for p in [PERSONAS[1], PERSONAS[2]]}
+        for fut in as_completed(futs):
+            persona = futs[fut]
+            try:
+                interpretations.append(f"[{persona['name']}]: {fut.result()[:400]}")
+            except Exception:
+                pass
 
     if not interpretations:
         return f"Result: {metric_name}={metric_val:.4f} (delta={delta:+.4f})"
