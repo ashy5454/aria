@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![Gemini](https://img.shields.io/badge/powered%20by-Gemini-4285F4?logo=google)](https://ai.google.dev/)
+[![Providers](https://img.shields.io/badge/LLM-Gemini%20%7C%20OpenAI%20%7C%20OpenRouter-4285F4)](providers.py)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
@@ -48,7 +48,10 @@ git clone https://github.com/ashy5454/aria
 cd aria
 pip install google-genai httpx pyyaml
 
-export GEMINI_API_KEY=your_key_here
+# Pick one:
+export GEMINI_API_KEY=your_key       # provider: gemini
+export OPENROUTER_API_KEY=your_key   # provider: openrouter (GPT-4o, Claude, Llama...)
+export OPENAI_API_KEY=your_key       # provider: openai
 
 python loop_v2.py
 ```
@@ -161,7 +164,7 @@ See [`examples/mnist_lr_search/`](examples/mnist_lr_search/) for a complete work
 | Maverick | counterintuitive angles — wrong more often, but breakthroughs when right |
 | **Chairman** | stress-tests all five, synthesizes the strongest hypothesis |
 
-No OpenRouter needed. All six calls run on a single `GEMINI_API_KEY`.
+Works with any provider — set `provider:` in `research.yaml` to `gemini`, `openrouter`, or `openai`.
 
 ---
 
