@@ -1,0 +1,70 @@
+# research.yaml — MNIST MLP hyperparameter search example
+#
+# This is a worked example showing how to use the autoresearch harness
+# on a task other than CMP. The harness will autonomously tune the MLP
+# in model.py to hit val_acc > 0.993 on MNIST.
+#
+# Usage (from cmp_autoresearch/):
+#   python loop_v2.py --config examples/mnist_lr_search/research.yaml
+
+project:
+  name: "MNIST MLP Hyperparameter Search"
+  description: "Autonomously tune a 2-layer MLP to reach >99.3% accuracy on MNIST"
+
+model:
+  file: "examples/mnist_lr_search/model.py"   # the file agents edit
+
+eval:
+  script: "examples/mnist_lr_search/eval.py"  # immutable — do not modify
+  args: []
+  metric: "val_acc"
+  metric_output_key: "eval"                    # the key in stdout: "eval=0.9912"
+  direction: "higher"                          # higher val_acc = better
+  goal: 0.993                                  # stop when accuracy crosses this
+
+domain:
+  context: |
+    Simple 2-layer MLP for MNIST digit classification (10 classes, 28x28 images).
+
+    FILE TO EDIT: examples/mnist_lr_search/model.py
+    LEVERS (top of model.py — change these):
+      LEARNING_RATE  — controls step size (default: 1e-3)
+      HIDDEN_SIZE    — hidden layer width (default: 256)
+      DROPOUT        — regularization dropout rate (default: 0.1)
+
+    CONSTRAINTS (never violate):
+      - Keep the 2-layer MLP class with the same forward() interface
+      - No convolutions or batch normalization
+      - No new packages beyond torch and torchvision
+      - Do NOT modify eval.py
+      - ONE change per experiment
+
+    Think: which hyperparameter change most reduces generalization gap?
+    Higher HIDDEN_SIZE adds capacity. Lower DROPOUT reduces regularization.
+    Lower LEARNING_RATE may need more epochs (but FIXED_EPOCHS=5 is set in eval.py).
+
+  baselines:
+    - {name: "Random guessing",       value: 0.10}
+    - {name: "Linear (no hidden)",    value: 0.925}
+    - {name: "Default MLP",           value: 0.972}
+    - {name: "Target",                value: 0.993, is_target: true}
+
+stop_conditions:
+  consecutive_failures: 15
+  mechanism_confirmed: 3
+
+council:
+  models:
+    - "openai/gpt-5.1"
+    - "google/gemini-3-pro-preview"
+    - "anthropic/claude-opus-4.8"
+    - "x-ai/grok-4"
+  chairman: "google/gemini-3-pro-preview"
+  interpretation_threshold: 0.002
+
+loop:
+  gemini_model: "gemini-2.5-flash"
+  evolve_every: 10
+  max_retries: 3
+  use_web_search: false    # MNIST needs no web search — domain is well-understood
+  skills_search_k: 3

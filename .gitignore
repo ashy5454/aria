@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Secrets — never commit these
+.env
+*.pem
+*.key
+auth.json
+credentials.json
+
+# Experiment runtime artifacts — too large / machine-specific
+results/results.tsv
+results/session.log
+results/CONCLUSION.md
+wiki/session.db
+wiki/skills.db
+wiki/skills/
+examples/**/.data/
+
+# ML model artifacts
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Dataset cache
+*_cache*/
+.cache/
+cache/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Node / vendor (CTS bridge only)
+node_modules/
+
+# Keep these (curated results worth committing)
+!results/.gitkeep
+!wiki/skills/.gitkeep

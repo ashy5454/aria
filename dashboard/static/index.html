@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Crucible</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --blue: #58a6ff; --red: #f85149; --yellow: #d29922;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Mono', monospace; font-size: 13px; }
+
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { font-weight: 700; font-size: 16px; color: var(--blue); letter-spacing: 1px; }
+  .logo span { color: var(--green); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .dot.off { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-text { color: var(--muted); font-size: 11px; }
+  .status-text b { color: var(--text); }
+  .ml-auto { margin-left: auto; }
+
+  .page { padding: 12px; display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .card-header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+  .card-body { padding: 14px; }
+
+  /* Metric big display */
+  .metric-row { display: flex; gap: 12px; }
+  .metric-box { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; text-align: center; }
+  .metric-val { font-size: 28px; font-weight: 700; line-height: 1; }
+  .metric-val.green { color: var(--green); }
+  .metric-val.blue { color: var(--blue); }
+  .metric-label { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Progress bar */
+  .progress-wrap { margin-top: 12px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+  .progress-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); border-radius: 3px; transition: width 0.8s ease; }
+
+  /* Conclusion banner */
+  .conclusion-banner {
+    background: #0d2818; border: 1px solid #1a4731; border-radius: 8px;
+    padding: 14px; display: none;
+  }
+  .conclusion-banner.show { display: block; }
+  .conclusion-title { color: var(--green); font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .conclusion-body { color: #c9d1d9; font-size: 11px; line-height: 1.6; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+  /* Results table */
+  .results-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .results-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; }
+  .results-table td { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr.best td { background: #0d1f0d; }
+  .tag-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 9px; color: var(--muted); }
+
+  /* Log */
+  .log-box {
+    background: #010409; border-radius: 6px; padding: 10px;
+    font-size: 10px; line-height: 1.7; max-height: 180px;
+    overflow-y: auto; color: var(--muted); font-family: 'SF Mono', monospace;
+  }
+  .log-line.good { color: var(--green); }
+  .log-line.bad { color: var(--red); }
+  .log-line.info { color: var(--blue); }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); font-family: monospace; font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.start { border-color: var(--green); color: var(--green); }
+  .btn.start:hover { background: #0d2818; }
+  .btn.stop { border-color: var(--red); color: var(--red); }
+  .btn.stop:hover { background: #2d1116; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* PIN modal */
+  .modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 280px; }
+  .modal h3 { color: var(--text); margin-bottom: 12px; font-size: 15px; }
+  .modal input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); font-family: monospace; font-size: 20px; padding: 10px;
+    text-align: center; letter-spacing: 6px; outline: none; margin-bottom: 12px;
+  }
+  .modal input:focus { border-color: var(--blue); }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btn { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: monospace; cursor: pointer; font-size: 13px; }
+  .modal-btn.confirm { background: #0d1f35; border-color: var(--blue); color: var(--blue); }
+
+  .refresh-hint { text-align: center; color: var(--muted); font-size: 10px; padding: 8px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">⚗ crucible</span>
+  <div class="dot" id="status-dot"></div>
+  <span class="status-text" id="status-text">connecting...</span>
+  <span class="ml-auto" style="font-size:10px;color:var(--muted)" id="last-refresh"></span>
+</div>
+
+<div class="page">
+
+  <!-- Conclusion banner (shown when stop condition fires) -->
+  <div class="conclusion-banner" id="conclusion-banner">
+    <div class="conclusion-title">CONCLUSION WRITTEN</div>
+    <div class="conclusion-body" id="conclusion-body"></div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Metrics</span>
+      <span style="font-size:10px;color:var(--muted)" id="exp-count">— experiments</span>
+    </div>
+    <div class="card-body">
+      <div class="metric-row">
+        <div class="metric-box">
+          <div class="metric-val green" id="best-metric">—</div>
+          <div class="metric-label">best metric</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val blue" id="goal-val">1.910</div>
+          <div class="metric-label">goal</div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>progress to goal</span>
+          <span id="progress-pct">—</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Loop Control</span></div>
+    <div class="card-body">
+      <div class="controls">
+        <button class="btn start" id="btn-start" onclick="promptAction('start')">▶ START</button>
+        <button class="btn stop"  id="btn-stop"  onclick="promptAction('stop')">■ STOP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Last Experiments</span>
+      <span style="font-size:10px;color:var(--muted)">newest first</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="results-table">
+        <thead><tr><th>#</th><th>metric</th><th>tag</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Live Log</span></div>
+    <div class="card-body" style="padding:8px">
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </div>
+
+  <div class="refresh-hint">auto-refresh every 5s</div>
+</div>
+
+<!-- PIN modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Enter PIN</h3>
+    <input type="password" inputmode="numeric" maxlength="4" id="pin-input" placeholder="••••" autofocus>
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="confirmAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _pendingAction = null;
+let _bestBaseline = null;
+let _goal = null;
+let _direction = 'lower';
+
+// ── fetch helpers ─────────────────────────────────────────────────────────────
+
+async function fetchStatus() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    updateStatus(d);
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'offline';
+    document.getElementById('status-dot').className = 'dot off';
+  }
+}
+
+async function fetchResults() {
+  try {
+    const r = await fetch('/results');
+    const rows = await r.json();
+    renderResults(rows);
+  } catch(e) {}
+}
+
+async function fetchLog() {
+  try {
+    const r = await fetch('/log');
+    const d = await r.json();
+    renderLog(d.lines);
+  } catch(e) {}
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+
+function updateStatus(d) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'dot ' + (d.running ? 'on' : 'off');
+  txt.innerHTML = d.running
+    ? `<b style="color:var(--green)">RUNNING</b> · ${d.total_exps} experiments`
+    : `<b style="color:var(--red)">STOPPED</b> · ${d.total_exps} experiments`;
+
+  document.getElementById('btn-start').disabled = d.running;
+  document.getElementById('btn-stop').disabled = !d.running;
+  document.getElementById('exp-count').textContent = `${d.total_exps} experiments`;
+  document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+
+  if (d.best) {
+    document.getElementById('best-metric').textContent = parseFloat(d.best).toFixed(4);
+    updateProgress(parseFloat(d.best));
+  }
+
+  if (d.conclusion) {
+    const banner = document.getElementById('conclusion-banner');
+    banner.classList.add('show');
+    document.getElementById('conclusion-body').textContent = d.conclusion.slice(0, 600);
+  }
+}
+
+function updateProgress(best) {
+  // Simple heuristic: baseline 2.143 → goal 1.910
+  const baseline = 2.143, goal = 1.910;
+  const total = baseline - goal;
+  const done = baseline - best;
+  const pct = Math.max(0, Math.min(100, (done / total) * 100));
+  document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('progress-pct').textContent = pct.toFixed(0) + '%';
+}
+
+function renderResults(rows) {
+  const tbody = document.getElementById('results-body');
+  const reversed = [...rows].reverse();
+  const minVal = Math.min(...reversed.map(r => parseFloat(r.metric)).filter(v => !isNaN(v)));
+  tbody.innerHTML = reversed.map(r => {
+    const val = parseFloat(r.metric);
+    const isBest = val === minVal;
+    const color = val < 1.910 ? 'var(--green)' : (val < 2.0 ? 'var(--yellow)' : 'var(--red)');
+    return `<tr class="${isBest ? 'best' : ''}">
+      <td style="color:var(--muted)">${r.exp}</td>
+      <td style="color:${color};font-weight:${isBest?'700':'400'}">${isNaN(val)?r.metric:val.toFixed(4)}${isBest?' ★':''}</td>
+      <td><span class="tag-chip">${r.tag||'—'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLog(lines) {
+  const box = document.getElementById('log-box');
+  const wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 10;
+  box.innerHTML = lines.map(l => {
+    let cls = '';
+    if (l.includes('NEW BEST') || l.includes('GOAL') || l.includes('improve')) cls = 'good';
+    else if (l.includes('ERROR') || l.includes('crash') || l.includes('FAIL')) cls = 'bad';
+    else if (l.includes('Hypothesis') || l.includes('Council') || l.includes('→')) cls = 'info';
+    return `<div class="log-line ${cls}">${escHtml(l)}</div>`;
+  }).join('');
+  if (wasAtBottom) box.scrollTop = box.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── PIN modal ─────────────────────────────────────────────────────────────────
+
+function promptAction(action) {
+  _pendingAction = action;
+  document.getElementById('modal-title').textContent = action === 'start' ? 'Start loop?' : 'Stop loop?';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('modal').classList.add('show');
+  setTimeout(() => document.getElementById('pin-input').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  _pendingAction = null;
+}
+
+async function confirmAction() {
+  const pin = document.getElementById('pin-input').value;
+  closeModal();
+  try {
+    const r = await fetch('/' + _pendingAction, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({pin})
+    });
+    const d = await r.json();
+    if (d.error) alert('Wrong PIN');
+    else setTimeout(fetchStatus, 800);
+  } catch(e) { alert('Request failed'); }
+}
+
+document.getElementById('pin-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmAction();
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── polling ───────────────────────────────────────────────────────────────────
+
+async function refresh() {
+  await Promise.all([fetchStatus(), fetchResults(), fetchLog()]);
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

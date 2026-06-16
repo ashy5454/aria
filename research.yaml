@@ -1,0 +1,57 @@
+# research.yaml — ARIA config
+#
+# Point this at your model file and eval script to run autonomous
+# ML architecture research on any domain. The harness adapts:
+#   - Planner proposes hypotheses in the language of your domain
+#   - Coder edits your model file (one change per experiment)
+#   - Evaluator calls your eval script, parses the metric
+#   - Analyst writes skill files, decides keep/discard
+#   - Evolver rewrites AGENT.md every N experiments (GEPA-lite)
+#
+# For a different project: copy this file, fill in your domain, run:
+#   python loop_v2.py --config your_research.yaml
+
+project:
+  name: "My Research Project"
+  description: "One sentence description of what you're optimizing"
+
+# The single file agents edit (Planner proposes, Coder modifies this file only)
+model:
+  file: "solutions/cmp_current.py"   # relative to this config file's directory
+
+# Eval: any script that prints "{metric_output_key}=X.XXXX" to stdout
+eval:
+  script: "harness/evaluate.py"      # relative to this config file's directory
+  args: []                           # extra CLI args passed to eval script
+  metric: "val_loss"                 # how the metric is named in results.tsv + logs
+  metric_output_key: "eval"          # what appears in stdout: "eval=0.031"
+  direction: "lower"                 # "lower" or "higher"
+  goal: 0.90                         # stop condition: metric crosses this value
+
+# Domain context injected into every agent prompt.
+# Write this as if briefing a new researcher who knows ML but not your project.
+# More specific = better hypotheses.
+domain:
+  context: |
+    [Describe your model here. What is it? What does it do?]
+    [What are the architectural levers worth pulling?]
+    [What must never be changed? (hard constraints)]
+    [What baselines exist? What does "good" look like?]
+
+  baselines:
+    - {name: "Baseline A", value: 1.00}
+    - {name: "Target",     value: 0.90, is_target: true}
+
+# Stop conditions
+stop_conditions:
+  consecutive_failures: 20      # N experiments with no improvement → ceiling found
+  mechanism_confirmed: 3        # same mechanism improves in N independent runs → confirmed
+
+# LLM provider — gemini | openrouter | openai
+loop:
+  provider: "gemini"
+  gemini_model: "gemini-3.5-flash"  # model name for the selected provider
+  evolve_every: 20              # rewrite AGENT.md every N experiments
+  max_retries: 3                # retries if Coder produces broken code
+  use_web_search: true          # Planner uses web search (gemini only)
+  skills_search_k: 5            # top-K skill files sent to Planner context
