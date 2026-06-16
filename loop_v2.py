@@ -173,7 +173,11 @@ def git_commit(message: str) -> str:
 
 
 def git_reset() -> None:
-    subprocess.run("git reset --hard HEAD~1", shell=True, cwd=str(ROOT), capture_output=True)
+    r = subprocess.run("git reset --hard HEAD~1", shell=True, cwd=str(ROOT), capture_output=True)
+    if r.returncode != 0:
+        log(f"[git] reset failed: {r.stderr.decode()[:100]} — forcing checkout instead")
+        subprocess.run(f"git checkout -- {SOLUTION.relative_to(ROOT)}",
+                       shell=True, cwd=str(ROOT), capture_output=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -399,7 +403,12 @@ def run_evaluate() -> dict:
     cmd = [sys.executable, str(EVAL_SCRIPT)] + [str(a) for a in EVAL_ARGS]
     log(f"[eval] Running: {' '.join(cmd)}")
     t0 = time.time()
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(HARNESS_DIR))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(HARNESS_DIR),
+                                timeout=7200)  # 2hr hard ceiling — kills hung training
+    except subprocess.TimeoutExpired:
+        log(f"[eval] TIMEOUT — training hung past 2hr, killing")
+        return {METRIC_NAME: worst_possible(), "params_M": 0.0, "status": "crash"}
     elapsed = time.time() - t0
     stdout = result.stdout + result.stderr
 
@@ -745,7 +754,13 @@ def main():
         # ── COUNCIL INTERPRETATION (on surprising results) ─────────────────
         if _COUNCIL_AVAILABLE:
             delta = metric_val - best_metric
-            if abs(delta) > float(CFG.get("council", {}).get("interpretation_threshold", 0.02)):
+            # Only interpret if result is a genuine improvement AND meaningful magnitude.
+            # Threshold 0.5 avoids firing on the first real result after a crash run
+            # where best_metric = 9.999999 and delta is artificially huge.
+            interp_threshold = float(CFG.get("council", {}).get("interpretation_threshold", 0.5))
+            is_meaningful = (abs(delta) > interp_threshold and
+                             metric_val < 9.0 and best_metric < 9.0)
+            if is_meaningful:
                 log(f"[council] Surprising result (delta={delta:+.4f}) — running interpretation...")
                 interp = run_result_interpretation(
                     domain_context=DOMAIN_CONTEXT,
