@@ -629,7 +629,7 @@ def web_search_context(query: str) -> str:
 Focus on: what the technique is, how it works mechanistically,
 and whether it's relevant to: {DOMAIN_CONTEXT[:300]}
 Keep summary under 300 words."""
-        response = model_search.generate_content(prompt)
+        response = model_search.generate_with_search(prompt)
         return response.text[:1000]
     except Exception as e:
         log(f"[web] Search failed: {e}")
@@ -680,7 +680,7 @@ def main():
 
         # ── AGENT 1: PLANNER (or Council) ─────────────────────────────────
         if _COUNCIL_AVAILABLE:
-            log("[1/4] HYPOTHESIS COUNCIL — 4 models proposing + ranking...")
+            log("[1/4] HYPOTHESIS COUNCIL — 5 personas proposing + chairman synthesizing...")
             plan = run_hypothesis_council(
                 domain_context=DOMAIN_CONTEXT,
                 constitution=AGENT_MD.read_text() if AGENT_MD.exists() else "",
@@ -693,6 +693,9 @@ def main():
                 gemini_model=GEMINI_MODEL,
                 provider=PROVIDER,
             )
+            if not plan or not plan.get("hypothesis"):
+                log("[council] All personas failed — falling back to solo planner")
+                plan = agent_planner(current_code, best_metric, experiment_n)
         else:
             log("[1/4] PLANNER — proposing hypothesis (Gemini)...")
             plan = agent_planner(current_code, best_metric, experiment_n)
@@ -770,6 +773,8 @@ def main():
                     metric_val=metric_val,
                     train_val=result.get("train_bpb", metric_val),
                     best_metric=best_metric,
+                    metric_direction=METRIC_DIRECTION,
+                    metric_goal=METRIC_GOAL,
                     recent_results=load_recent_results(10),
                     current_code=current_code,
                     gemini_model=GEMINI_MODEL,

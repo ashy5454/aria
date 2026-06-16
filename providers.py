@@ -57,10 +57,10 @@ class GeminiClient(LLMClient):
 
     def generate_content(self, prompt: str, system: str | None = None) -> LLMResponse:
         from google.genai import types as gtypes
-        cfg_kwargs = {"timeout": 90}
+        cfg_kwargs = {}
         if system:
             cfg_kwargs["system_instruction"] = system
-        cfg = gtypes.GenerateContentConfig(**cfg_kwargs)
+        cfg = gtypes.GenerateContentConfig(**cfg_kwargs) if cfg_kwargs else None
         resp = self._client.models.generate_content(
             model=self._model, contents=prompt, config=cfg
         )
@@ -70,14 +70,16 @@ class GeminiClient(LLMClient):
         from google.genai import types as gtypes
         if not self._use_search:
             return self.generate_content(prompt)
-        cfg = gtypes.GenerateContentConfig(
-            tools=[gtypes.Tool(google_search=gtypes.GoogleSearch())],
-            timeout=90,
-        )
-        resp = self._client.models.generate_content(
-            model=self._model, contents=prompt, config=cfg
-        )
-        return LLMResponse(resp.text.strip())
+        try:
+            cfg = gtypes.GenerateContentConfig(
+                tools=[gtypes.Tool(google_search=gtypes.GoogleSearch())],
+            )
+            resp = self._client.models.generate_content(
+                model=self._model, contents=prompt, config=cfg
+            )
+            return LLMResponse(resp.text.strip())
+        except Exception:
+            return self.generate_content(prompt)
 
 
 # ── OpenAI-compatible (OpenRouter + OpenAI) ───────────────────────────────────
