@@ -1,0 +1,88 @@
+# research.yaml — ARIA config for CMP Architecture Research
+
+project:
+  name: "CMP Architecture Research"
+  description: "Beat transformer val_bpb 1.91 on byte-level wikitext-2 using sparse binding architecture"
+
+# The single file agents edit (Planner proposes, Coder modifies this file only)
+model:
+  file: "solutions/cmp_current.py"
+
+# Eval: prints "eval=X.XXXX" to stdout
+eval:
+  script: "harness/evaluate.py"
+  args: []
+  metric: "val_bpb"
+  metric_output_key: "eval"          # stdout line contains "eval=X.XXXX"
+  direction: "lower"
+  goal: 1.4                          # ambitious target — forces structural thinking, not micro-tuning
+
+# Domain context — injected into EVERY agent and council persona prompt
+domain:
+  context: |
+    You are researching CMP — a brain-inspired sparse representation architecture for byte-level language modeling.
+    CMP is NOT a transformer. It uses sparse patterns and multiplicative binding instead of attention.
+
+    Architecture:
+    - Input: raw bytes (no tokenizer, no vocabulary)
+    - Sparse coding: ~5-10% of neurons active at any time via k-WTA or threshold gating
+    - Binding: multiplicative element-wise product of sparse pattern vectors (the core mechanism)
+    - Recurrent state: compact hidden state H updated each byte step
+    - U_gate: learned gating on the recurrent update — load-bearing, must never be removed
+    - Decoder: projection from sparse representation to next-byte logits
+    - Training: backprop (local learning rules are long-term direction, not current constraint)
+
+    Current best: eval=2.075 (val_bpb, lower is better)
+    Transformer baseline: eval=1.91 at 12k steps on wikitext-2 byte level
+    Gap to close: 0.165 bpb
+
+    Hard constraints (never violate — any code change that violates these is wrong):
+    - NO attention mechanism of any kind inside the model
+    - NO self-attention, cross-attention, or scaled dot-product attention
+    - Sparse binding mechanism must be preserved — this is the thesis
+    - U_gate must stay — removing it causes collapse
+    - Training data stays wikitext-2 byte level
+    - FIXED_STEPS=12000 must not be changed (comparison validity)
+
+    Architectural levers worth exploring:
+    - Sparsity level (k in k-WTA, threshold value, percentage active)
+    - Binding mechanism variants (multiplicative, Hadamard, outer product projection)
+    - Number of binding rounds per byte
+    - Recurrent state size and update rule
+    - Normalization placement and type (LayerNorm, RMSNorm, none)
+    - Learning rate, warmup, scheduler shape
+    - Decoder depth (linear vs small MLP)
+    - Binding matrix initialization (orthogonal, random, identity)
+    - Residual connections around binding
+    - Separate context and prediction pathways
+
+    Known empirical results (do not repeat these):
+    - Dense equivalent (sparsity removed) performs worse — sparsity is load-bearing
+    - Sparsity below 1% active neurons causes representational collapse
+    - Residual connections around the binding step stabilize training
+    - Separate prediction heads for binding vs. content components hurt
+    - Simple additive recurrent updates underfit — binding must be multiplicative
+
+  baselines:
+    - {name: "Transformer baseline", value: 1.91, is_target: true}
+    - {name: "CMP current best",     value: 2.075}
+
+# Stop conditions
+stop_conditions:
+  consecutive_failures: 20
+  mechanism_confirmed: 3
+
+# LLM provider
+loop:
+  provider: "gemini"
+  gemini_model: "gemini-3.5-flash"
+  evolve_every: 5
+  narrator_every: 5
+  max_retries: 3
+  use_web_search: true
+  skills_search_k: 5
+
+# Council interpretation threshold — only fire on meaningful deltas
+# 0.002 = any real architectural change (not crash noise at 9.999)
+council:
+  interpretation_threshold: 0.002
