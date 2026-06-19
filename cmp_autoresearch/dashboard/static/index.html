@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Crucible</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #3fb950; --blue: #58a6ff; --red: #f85149; --yellow: #d29922;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'SF Mono', monospace; font-size: 13px; }
+
+  .topbar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { font-weight: 700; font-size: 16px; color: var(--blue); letter-spacing: 1px; }
+  .logo span { color: var(--green); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  .dot.off { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-text { color: var(--muted); font-size: 11px; }
+  .status-text b { color: var(--text); }
+  .ml-auto { margin-left: auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .tab {
+    flex: 1; padding: 10px 6px; text-align: center; font-size: 10px;
+    font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .page { padding: 12px; display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .card-header { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+  .card-body { padding: 14px; }
+
+  /* Metric big display */
+  .metric-row { display: flex; gap: 12px; }
+  .metric-box { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; text-align: center; }
+  .metric-val { font-size: 28px; font-weight: 700; line-height: 1; }
+  .metric-val.green { color: var(--green); }
+  .metric-val.blue { color: var(--blue); }
+  .metric-label { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Progress bar */
+  .progress-wrap { margin-top: 12px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+  .progress-bar-bg { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); border-radius: 3px; transition: width 0.8s ease; }
+
+  /* Conclusion banner */
+  .conclusion-banner {
+    background: #0d2818; border: 1px solid #1a4731; border-radius: 8px;
+    padding: 14px; display: none;
+  }
+  .conclusion-banner.show { display: block; }
+  .conclusion-title { color: var(--green); font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .conclusion-body { color: #c9d1d9; font-size: 11px; line-height: 1.6; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+  /* Results table */
+  .results-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .results-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 10px; text-transform: uppercase; }
+  .results-table td { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr.best td { background: #0d1f0d; }
+  .tag-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 9px; color: var(--muted); }
+
+  /* Log */
+  .log-box {
+    background: #010409; border-radius: 6px; padding: 10px;
+    font-size: 10px; line-height: 1.7; max-height: 220px;
+    overflow-y: auto; color: var(--muted); font-family: 'SF Mono', monospace;
+  }
+  .log-line.good { color: var(--green); }
+  .log-line.bad { color: var(--red); }
+  .log-line.info { color: var(--blue); }
+  .log-line.council { color: var(--purple); }
+  .log-line.challenge { color: var(--yellow); }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 12px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); font-family: monospace; font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.start { border-color: var(--green); color: var(--green); }
+  .btn.start:hover { background: #0d2818; }
+  .btn.stop { border-color: var(--red); color: var(--red); }
+  .btn.stop:hover { background: #2d1116; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Narrative */
+  .narrative-box {
+    background: var(--bg); border-radius: 6px; padding: 14px;
+    font-size: 11px; line-height: 1.8; color: #c9d1d9;
+    white-space: pre-wrap; max-height: 70vh; overflow-y: auto;
+  }
+  .narrative-box h1 { color: var(--blue); font-size: 14px; margin-bottom: 8px; }
+  .narrative-box h2 { color: var(--green); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 12px 0 4px; }
+  .narrative-box table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 8px 0; }
+  .narrative-box th, .narrative-box td { padding: 4px 8px; border: 1px solid var(--border); }
+  .narrative-none { text-align: center; color: var(--muted); font-size: 11px; padding: 40px 20px; }
+
+  /* Chatbot */
+  .chat-messages {
+    max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    padding: 12px; background: var(--bg); border-radius: 6px;
+  }
+  .msg { max-width: 88%; border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.6; }
+  .msg.user { background: #0d2030; color: var(--blue); align-self: flex-end; border: 1px solid #1a3a50; }
+  .msg.nara { background: var(--surface); color: var(--text); align-self: flex-start; border: 1px solid var(--border); }
+  .msg.nara .sender { color: var(--purple); font-size: 9px; font-weight: 700; margin-bottom: 4px; letter-spacing: 1px; }
+  .msg.thinking { color: var(--muted); font-style: italic; background: var(--surface); align-self: flex-start; border: 1px solid var(--border); }
+  .chat-input-row { display: flex; gap: 8px; padding: 10px 0 0; }
+  .chat-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: monospace; font-size: 12px; padding: 10px;
+    outline: none; resize: none;
+  }
+  .chat-input:focus { border-color: var(--blue); }
+  .chat-send {
+    padding: 10px 16px; background: #0d2030; border: 1px solid var(--blue);
+    border-radius: 6px; color: var(--blue); font-family: monospace; font-size: 12px;
+    font-weight: 600; cursor: pointer;
+  }
+  .chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chat-hint { text-align: center; color: var(--muted); font-size: 9px; padding: 4px; }
+
+  /* PIN modal */
+  .modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 280px; }
+  .modal h3 { color: var(--text); margin-bottom: 12px; font-size: 15px; }
+  .modal input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+    color: var(--text); font-family: monospace; font-size: 20px; padding: 10px;
+    text-align: center; letter-spacing: 6px; outline: none; margin-bottom: 12px;
+  }
+  .modal input:focus { border-color: var(--blue); }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btn { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: monospace; cursor: pointer; font-size: 13px; }
+  .modal-btn.confirm { background: #0d1f35; border-color: var(--blue); color: var(--blue); }
+
+  .refresh-hint { text-align: center; color: var(--muted); font-size: 10px; padding: 8px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">⚗ crucible</span>
+  <div class="dot" id="status-dot"></div>
+  <span class="status-text" id="status-text">connecting...</span>
+  <span class="ml-auto" style="font-size:10px;color:var(--muted)" id="last-refresh"></span>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('loop')" id="tab-loop">Loop</div>
+  <div class="tab" onclick="switchTab('narrative')" id="tab-narrative">Narrative</div>
+  <div class="tab" onclick="switchTab('chat')" id="tab-chat">💬 NARA</div>
+</div>
+
+<!-- ═══ TAB: LOOP ═══ -->
+<div class="tab-content active" id="content-loop">
+<div class="page">
+
+  <div class="conclusion-banner" id="conclusion-banner">
+    <div class="conclusion-title">CONCLUSION WRITTEN</div>
+    <div class="conclusion-body" id="conclusion-body"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Metrics</span>
+      <span style="font-size:10px;color:var(--muted)" id="exp-count">— experiments</span>
+    </div>
+    <div class="card-body">
+      <div class="metric-row">
+        <div class="metric-box">
+          <div class="metric-val green" id="best-metric">—</div>
+          <div class="metric-label">best val_bpb</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val blue" id="goal-val">1.400</div>
+          <div class="metric-label">goal</div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>progress to 1.4</span>
+          <span id="progress-pct">—</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Loop Control</span></div>
+    <div class="card-body">
+      <div class="controls">
+        <button class="btn start" id="btn-start" onclick="promptAction('start')">▶ START</button>
+        <button class="btn stop"  id="btn-stop"  onclick="promptAction('stop')">■ STOP</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Last Experiments</span>
+      <span style="font-size:10px;color:var(--muted)">newest first</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="results-table">
+        <thead><tr><th>#</th><th>val_bpb</th><th>status</th><th>description</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Live Log</span></div>
+    <div class="card-body" style="padding:8px">
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </div>
+
+  <div class="refresh-hint">auto-refresh every 5s</div>
+</div>
+</div>
+
+<!-- ═══ TAB: NARRATIVE ═══ -->
+<div class="tab-content" id="content-narrative">
+<div class="page">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Research Narrative</span>
+      <span style="font-size:10px;color:var(--muted)">updated every 5 experiments</span>
+    </div>
+    <div class="card-body" style="padding:10px">
+      <div id="narrative-content" class="narrative-none">No narrative yet — runs after experiment 5.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ TAB: CHAT ═══ -->
+<div class="tab-content" id="content-chat">
+<div class="page">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💬 Ask NARA</span>
+      <span style="font-size:10px;color:var(--purple)">research AI</span>
+    </div>
+    <div class="card-body" style="padding:10px">
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg nara">
+          <div class="sender">NARA</div>
+          I'm the research intelligence for this CMP session. Ask me anything — what's the bottleneck, what did experiment 7 prove, what should we try next.
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" rows="2" placeholder="Ask about the research..."></textarea>
+        <button class="chat-send" id="chat-send" onclick="sendChat()">→</button>
+      </div>
+      <div class="chat-hint">PIN required · powered by Gemini 3.5 Flash</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- PIN modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Enter PIN</h3>
+    <input type="password" inputmode="numeric" maxlength="4" id="pin-input" placeholder="••••" autofocus>
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" onclick="confirmAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _pendingAction = null;
+let _savedPin = '';
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('content-' + name).classList.add('active');
+  if (name === 'narrative') fetchNarrative();
+}
+
+// ── FETCH HELPERS ─────────────────────────────────────────────────────────────
+async function fetchStatus() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    updateStatus(d);
+  } catch(e) {
+    document.getElementById('status-text').textContent = 'offline';
+    document.getElementById('status-dot').className = 'dot off';
+  }
+}
+
+async function fetchResults() {
+  try {
+    const r = await fetch('/results');
+    const rows = await r.json();
+    renderResults(rows);
+  } catch(e) {}
+}
+
+async function fetchLog() {
+  try {
+    const r = await fetch('/log');
+    const d = await r.json();
+    renderLog(d.lines);
+  } catch(e) {}
+}
+
+async function fetchNarrative() {
+  try {
+    const r = await fetch('/narrative');
+    const d = await r.json();
+    const el = document.getElementById('narrative-content');
+    if (d.text) {
+      el.className = 'narrative-box';
+      el.innerHTML = renderMarkdown(d.text);
+    } else {
+      el.className = 'narrative-none';
+      el.textContent = 'No narrative yet — runs after experiment 5.';
+    }
+  } catch(e) {}
+}
+
+// ── MARKDOWN RENDERER (minimal) ───────────────────────────────────────────────
+function renderMarkdown(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^## (.+)$/gm, '<h2>$2</h2>'.replace('$2','$1'))
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code style="background:#0d1117;padding:1px 4px;border-radius:3px;font-size:10px">$1</code>')
+    .replace(/^\|(.+)\|$/gm, (m) => {
+      const cells = m.split('|').slice(1,-1).map(c => `<td>${c.trim()}</td>`).join('');
+      return `<tr>${cells}</tr>`;
+    })
+    .replace(/^- (.+)$/gm, '• $1')
+    .replace(/\n/g, '<br>');
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function updateStatus(d) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'dot ' + (d.running ? 'on' : 'off');
+  txt.innerHTML = d.running
+    ? `<b style="color:var(--green)">RUNNING</b> · ${d.total_exps} experiments`
+    : `<b style="color:var(--red)">STOPPED</b> · ${d.total_exps} experiments`;
+
+  document.getElementById('btn-start').disabled = d.running;
+  document.getElementById('btn-stop').disabled = !d.running;
+  document.getElementById('exp-count').textContent = `${d.total_exps} experiments`;
+  document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+
+  if (d.best) {
+    document.getElementById('best-metric').textContent = parseFloat(d.best).toFixed(4);
+    updateProgress(parseFloat(d.best));
+  }
+
+  if (d.conclusion) {
+    const banner = document.getElementById('conclusion-banner');
+    banner.classList.add('show');
+    document.getElementById('conclusion-body').textContent = d.conclusion.slice(0, 600);
+  }
+}
+
+function updateProgress(best) {
+  // baseline ~2.143 (early CMP) → goal 1.4
+  const baseline = 2.143, goal = 1.4;
+  const total = baseline - goal;
+  const done = baseline - best;
+  const pct = Math.max(0, Math.min(100, (done / total) * 100));
+  document.getElementById('progress-bar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('progress-pct').textContent = pct.toFixed(0) + '%';
+}
+
+function renderResults(rows) {
+  const tbody = document.getElementById('results-body');
+  const reversed = [...rows].reverse();
+  const keepVals = reversed
+    .filter(r => r.tag === 'keep')
+    .map(r => parseFloat(r.metric))
+    .filter(v => !isNaN(v) && v < 9.0);
+  const minVal = keepVals.length ? Math.min(...keepVals) : null;
+
+  tbody.innerHTML = reversed.map((r, i) => {
+    const val = parseFloat(r.metric);
+    const isBest = minVal !== null && val === minVal;
+    const isKeep = r.tag === 'keep';
+    const color = val < 1.91 ? 'var(--green)' : (val < 2.0 ? 'var(--yellow)' : 'var(--muted)');
+    // parse TSV: commit, metric, params_M, status, description
+    const parts = rows[rows.length - 1 - i];
+    const desc = (parts.tag2 || '').slice(0, 28);
+    const status = parts.tag || '?';
+    const statusColor = status === 'keep' ? 'var(--green)' : (status === 'discard' ? 'var(--red)' : 'var(--muted)');
+    return `<tr class="${isBest ? 'best' : ''}">
+      <td style="color:var(--muted);font-size:9px">${r.exp.slice(0,7)}</td>
+      <td style="color:${color};font-weight:${isBest?'700':'400'}">${isNaN(val)||val>9?'crash':val.toFixed(4)}${isBest?' ★':''}</td>
+      <td style="color:${statusColor};font-size:9px">${status}</td>
+      <td style="color:var(--muted);font-size:9px">${escHtml(desc)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLog(lines) {
+  const box = document.getElementById('log-box');
+  const wasAtBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 10;
+  box.innerHTML = lines.map(l => {
+    let cls = '';
+    if (l.includes('NEW BEST') || l.includes('GOAL') || l.includes('KEEP')) cls = 'good';
+    else if (l.includes('ERROR') || l.includes('crash') || l.includes('FAIL') || l.includes('DISCARD')) cls = 'bad';
+    else if (l.includes('council') || l.includes('COUNCIL') || l.includes('persona')) cls = 'council';
+    else if (l.includes('challenger') || l.includes('CHALLENGER') || l.includes('REJECTED')) cls = 'challenge';
+    else if (l.includes('Hypothesis') || l.includes('→') || l.includes('lit]') || l.includes('narrator')) cls = 'info';
+    return `<div class="log-line ${cls}">${escHtml(l)}</div>`;
+  }).join('');
+  if (wasAtBottom) box.scrollTop = box.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── CHATBOT ────────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+
+  if (!_savedPin) {
+    const pin = prompt('Enter PIN to talk to NARA:');
+    if (!pin) return;
+    _savedPin = pin;
+  }
+
+  addMsg('user', message);
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('chat-send').disabled = true;
+
+  const thinking = addMsg('thinking', '⠋ NARA is thinking...');
+
+  try {
+    const r = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({pin: _savedPin, message})
+    });
+    const d = await r.json();
+    thinking.remove();
+    if (d.error === 'wrong PIN') {
+      _savedPin = '';
+      addMsg('nara', 'Wrong PIN. Try again.');
+    } else {
+      addMsg('nara', d.reply || '(empty response)');
+    }
+  } catch(e) {
+    thinking.remove();
+    addMsg('nara', `(network error: ${e.message})`);
+  } finally {
+    input.disabled = false;
+    document.getElementById('chat-send').disabled = false;
+    input.focus();
+  }
+}
+
+function addMsg(role, text) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'nara') {
+    div.innerHTML = `<div class="sender">NARA</div>${escHtml(text)}`;
+  } else {
+    div.textContent = text;
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+
+// ── PIN MODAL (for loop control) ──────────────────────────────────────────────
+function promptAction(action) {
+  _pendingAction = action;
+  document.getElementById('modal-title').textContent = action === 'start' ? 'Start loop?' : 'Stop loop?';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('modal').classList.add('show');
+  setTimeout(() => document.getElementById('pin-input').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  _pendingAction = null;
+}
+
+async function confirmAction() {
+  const pin = document.getElementById('pin-input').value;
+  closeModal();
+  try {
+    const r = await fetch('/' + _pendingAction, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({pin})
+    });
+    const d = await r.json();
+    if (d.error) alert('Wrong PIN');
+    else setTimeout(fetchStatus, 800);
+  } catch(e) { alert('Request failed'); }
+}
+
+document.getElementById('pin-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmAction();
+  if (e.key === 'Escape') closeModal();
+});
+
+// ── POLLING ───────────────────────────────────────────────────────────────────
+async function refresh() {
+  await Promise.all([fetchStatus(), fetchResults(), fetchLog()]);
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
